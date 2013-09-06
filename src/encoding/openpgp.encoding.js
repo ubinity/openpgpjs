@@ -69,6 +69,7 @@ function openpgp_encoding_eme_pkcs1_encode(message, length) {
 	return result;
 }
 
+
 /**
  * decodes a EME-PKCS1-v1_5 padding (See RFC4880 13.1.2)
  * @param {String} message EME-PKCS1 padded message
@@ -119,6 +120,21 @@ function openpgp_encoding_emsa_pkcs1_encode(algo, data, keylength) {
 }
 
 /**
+ * create an OID prefixed hashed message
+ * @param {Integer} algo Hash algorithm type used
+ * @param {String} data Data to be hashed
+ * @returns {String} Hashcode with OID as string
+ */
+function openpgp_encoding_oid_encode(algo, data) {
+	var data2 = "";
+	for (var i = 0; i < hash_headers[algo].length; i++)
+		data2 += String.fromCharCode(hash_headers[algo][i]);
+	
+	data2 += openpgp_crypto_hashData(algo, data);
+	return new BigInteger(util.hexstrdump(data2),16);
+}
+
+/**
  * extract the hash out of an EMSA-PKCS1-v1.5 padding (See RFC4880 13.1.3) 
  * @param {String} data Hash in pkcs1 encoding
  * @returns {String} The hash as string
@@ -138,4 +154,21 @@ function openpgp_encoding_emsa_pkcs1_decode(algo, data) {
 	i+= j;	
 	if (data.substring(i).length < openpgp_crypto_getHashByteLength(algo)) return -1;
 	return data.substring(i);
+}
+
+/**
+ * extract hash from an OID prefixed hashed message
+ * @param {Integer} algo Hash algorithm type used
+ * @param {String} data Data to be hashed
+ * @returns {String} Hashcode with OID as string
+ */
+function openpgp_encoding_oid_decode(algo, data) {
+        var i = hash_headers[algo].length;
+        var j = 0;
+	for (j = 0; j < i && j < data.length; j++) {
+		if (data.charCodeAt(j) != hash_headers[algo][j]) return -1;
+	}
+
+        if (data.substring(i).length < openpgp_crypto_getHashByteLength(algo)) return -1;
+        return data.substring(i);
 }

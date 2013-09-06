@@ -75,6 +75,12 @@ function openpgp_type_s2k() {
 					this.type = gnuExtType;
 					this.s2kLength = 5;
 					// GnuPG extension mode 1001 -- don't write secret key at all
+                                } else if(gnuExtType == 1002) {
+                                        // GnuPG extension mode 1002 -- openpgp s
+                                        this.type = gnuExtType;
+                                        var slen = input[mypos++].charCodeAt();
+                                        this.fullAID = input.substring(mypos, mypos+slen);
+                                        this.s2kLength = 5+1+slen;
 				} else {
 					util.print_error("unknown s2k gnu protection mode! "+this.type);
 				}
@@ -132,6 +138,20 @@ function openpgp_type_s2k() {
 			    return key + openpgp_crypto_hashData(this.hashAlgorithm,String.fromCharCode(0)+isp);
 			}
 			return openpgp_crypto_hashData(this.hashAlgorithm,isp);
+                } else if (this.type == 1002) {
+                        //fetch carddata
+                        var resp = openpgp.pgpsc.fetchCardData();
+                        if (!resp) {
+                                return null;
+                        }
+                        //check finger print here?
+                        
+                        //verify pin
+                        var hexpin = "";
+                        for (var i = 0; i<passphrase.length;i++) {
+                              hexpin =  hexpin+ passphrase.charCodeAt(i).toString(16)   
+                        }
+                        return openpgp.pgpsc.verifyPIN(0x82, hexpin)? hexpin:null;
 		} else return null;
 	}
 	

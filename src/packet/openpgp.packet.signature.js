@@ -247,10 +247,19 @@ function openpgp_packet_signature() {
 		util.print_debug("DSA Signature is calculated with:|"+data+result+trailer+"|\n"+util.hexstrdump(data+result+trailer)+"\n hash:"+util.hexstrdump(hash));
 		result2 += hash.charAt(0);
 		result2 += hash.charAt(1);
-		result2 += openpgp_crypto_signData(hash_algo,privatekey.privateKeyPacket.publicKey.publicKeyAlgorithm,
-				publickey.MPIs,
-				privatekey.privateKeyPacket.secMPIs,
-				data+result+trailer);
+                if ((privatekey.privateKeyPacket.s2kUsageConventions==255) &&
+                    (privatekey.privateKeyPacket.s2k.type == 1002)) {
+                        var hexres2 = openpgp_encoding_oid_encode(hash_algo,data+result+trailer).toString(16);
+                        if (hexres2.length&1 == 1) hexres2 = "0"+hexres2;
+                        hexres2     = openpgp.pgpsc.signData(hexres2);
+                        var mpires2 = new BigInteger("00"+hexres2, 16).toMPI();
+                        result2    += mpires2;
+                } else {
+		        result2 += openpgp_crypto_signData(hash_algo,privatekey.privateKeyPacket.publicKey.publicKeyAlgorithm,
+				                           publickey.MPIs,
+				                           privatekey.privateKeyPacket.secMPIs,
+				                           data+result+trailer);
+                }
 		return {openpgp: (openpgp_packet.write_packet_header(2, (result+result2).length)+result + result2), 
 				hash: util.get_hashAlgorithmString(hash_algo)};
 	}

@@ -276,7 +276,7 @@ function openpgp_packet_keymaterial() {
 	    		this.s2kUsageConventions != 254) {
 	    	this.symmetricEncryptionAlgorithm = this.s2kUsageConventions;
 	    }
-	    if (this.s2kUsageConventions != 0 && this.s2k.type != 1001) {
+            if (this.s2kUsageConventions != 0 && this.s2k.type != 1001  && this.s2k.type != 1002) {
 	    	this.hasIV = true;
 	    	switch (this.symmetricEncryptionAlgorithm) {
 		    case  1: // - IDEA [IDEA]
@@ -314,10 +314,10 @@ function openpgp_packet_keymaterial() {
 	    if (this.s2kUsageConventions != 0 && this.s2k.type == 1001) {
 	    	this.secMPIs = null;
 	    	this.encryptedMPIData = null;
-	    } else if (!this.hasUnencryptedSecretKeyData) {
+	    } else if (!this.hasUnencryptedSecretKeyData && this.s2k.type != 1002) {
 	    	this.encryptedMPIData = input.substring(mypos, len);
 	    	mypos += this.encryptedMPIData.length;
-	    } else {
+	    } else if (this.s2k.type != 1002)  {
 	    	if (this.publicKey.publicKeyAlgorithm > 0 && this.publicKey.publicKeyAlgorithm < 4) {
 	    		//   Algorithm-Specific Fields for RSA secret keys:
 	    		//   - multiprecision integer (MPI) of RSA secret exponent d.
@@ -374,8 +374,32 @@ function openpgp_packet_keymaterial() {
 	function decryptSecretMPIs(str_passphrase) {
 		if (this.hasUnencryptedSecretKeyData)
 			return this.secMPIs;
+
+                //handle pgpcard here: check we have the correct one loaded
+                if (this.s2k.type == 1002) {
+                        if (!openpgp.pgpsc.initSessionCached()) {
+                                return false;
+                        }
+                        //here we need to check finger print and find corresponding key
+                        if (openpgp.pgpsc.hexs(this.publicKey.getFingerprint()) == 
+                            openpgp.pgpsc.getFingerPrint(openpgp.pgpsc.TAG.FINGER_SIG)) {
+                                this.s2k.subtype = openpgp.pgpsc.TAG.FINGER_SIG;
+                        } else if (openpgp.pgpsc.hexs(this.publicKey.getFingerprint()) == 
+                                   openpgp.pgpsc.getFingerPrint(openpgp.pgpsc.TAG.FINGER_DEC)) {
+                                this.s2k.subtype = openpgp.pgpsc.TAG.FINGER_DEC;
+                        } else {
+                                return false;
+                        }
+                }
 		// creating a key out of the passphrase
 		var key = this.s2k.produce_key(str_passphrase);
+                
+                //pgpcard, just return now
+                if (this.s2k.type == 1002) {
+                        if (key == null) return false;
+                        return true;
+                }
+
 		var cleartextMPIs = "";
     	switch (this.symmetricEncryptionAlgorithm) {
 	    case  1: // - IDEA [IDEA]
@@ -646,8 +670,18 @@ function openpgp_packet_keymaterial() {
 				new Date((this.subKeySignature.keyExpirationTime*1000)+ this.creationTime.getTime()) < new Date()) {
 				    return 1;
 				}
-			var hashdata = String.fromCharCode(0x99)+this.parentNode.header.substring(1)+this.parentNode.data+
-			String.fromCharCode(0x99)+this.header.substring(1)+this.packetdata;
+                        var len_parent = this.parentNode.header.substring(1);
+                        if (len_parent.length == 1) {
+                                len_parent = String.fromCharCode(0)+len_parent;
+                        }
+                        
+                        var len_this   = this.header.substring(1);
+                        if (len_this.length == 1) {
+                                len_this = String.fromCharCode(0)+len_this;
+                        }
+
+                        var hashdata = String.fromCharCode(0x99)+/*this.parentNode.header.substring(1)*/len_parent+this.parentNode.data+
+                                String.fromCharCode(0x99)+/*String.fromCharCode(0)+this.header.substring(1)*/len_this+this.packetdata;
 			if (!this.subKeySignature.verify(hashdata,this.parentNode)) {
 				return 0;
 			}

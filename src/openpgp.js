@@ -42,7 +42,15 @@ function _openpgp () {
 		this.keyring = new openpgp_keyring();
 		this.keyring.init();
 	}
-	
+
+	/**
+         * Initializes the scard library with given reader name.
+         * Not that the reader name may be partial.
+         */
+        function init_sc(reader_name) {
+                this.pgpsc = new openpgpSC(reader_name);
+        }   
+
 	/**
 	 * reads several publicKey objects from a ascii armored
 	 * representation an returns openpgp_msg_publickey packets
@@ -455,6 +463,7 @@ function _openpgp () {
 	this.read_publicKey = read_publicKey;
 	this.read_privateKey = read_privateKey;
 	this.init = init;
+	this.init_sc = init_sc;
 }
 
 var openpgp = new _openpgp();

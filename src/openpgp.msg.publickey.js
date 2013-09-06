@@ -219,11 +219,14 @@ function openpgp_msg_publickey() {
 		// V4: by convention subkeys are prefered for encryption service
 		// V3: keys MUST NOT have subkeys
 		for (var j = 0; j < this.subKeys.length; j++)
-				if (this.subKeys[j].publicKeyAlgorithm != 17 &&
-						this.subKeys[j].publicKeyAlgorithm != 3 &&
-						this.subKeys[j].verifyKey()) {
-					return this.subKeys[j];
-				}
+			if (this.subKeys[j].publicKeyAlgorithm != 17 &&
+			    this.subKeys[j].publicKeyAlgorithm != 3 &&
+			    this.subKeys[j].verifyKey()) {
+                                //use only subkey with correct flag set. This avoid using auth key from pgp card
+                                if ((this.subKeys[j].subKeySignature.keyFlags & (0x04|0x08)) != 0) {
+                                        return this.subKeys[j];
+                                }
+			}
 		// if no valid subkey for encryption, use primary key
 		if (this.publicKeyPacket.publicKeyAlgorithm != 17 && this.publicKeyPacket.publicKeyAlgorithm != 3
 			&& this.publicKeyPacket.verifyKey()) {

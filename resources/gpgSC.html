@@ -1,0 +1,251 @@
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <title>OPENPGPJS-CARD</title>
+
+     <script type="text/javascript" src="jquery.min.js"></script>
+     <script type="text/javascript" src="scard.js"></script>
+     <script type="text/javascript" src="openpgp.js"></script>
+     <script type="text/javascript" src="gpgSC_conf.js"></script>
+  </head>
+  
+  
+  <!--  INSERT YOUR CARD KEY EXPORT HERE -->
+  <script type="text/javascript">
+  </script>
+
+
+  <script type="text/javascript">
+
+    function showMessages(text){
+        document.forms["messages"].msg.value += text;
+        document.forms["messages"].msg.value += '\n';
+        console.log(text);
+    }
+
+    function clr_messages() {
+        document.forms["messages"].msg.value="";
+    }
+
+    function u32hexstr(u) {
+      if (typeof(u) != "number") {
+        return "WAT:"+typeof(u);
+      }
+      if (u < 0 ) {
+        u = 0xFFFFFFFF + u +1;
+      }
+      return "0x" + u.toString(16);
+    }
+
+    <!-- ============================= INIT ========================== -->
+
+    function gpg_set_oncard_key() {
+      document.forms["import"].ascpubkey.value = pgppubkey_oncard;
+      document.forms["import"].ascprivkey.value = pgpprivkey_oncard;
+    }
+ 
+    function gpg_set_offcard_key() {
+      document.forms["import"].ascpubkey.value = pgppubkey_offcard;
+      document.forms["import"].ascprivkey.value = pgpprivkey_offcard;
+    }
+
+
+    var pgp;
+    var pub_key;   //openpgp_msg_publickey[]
+    var priv_key;  //openpgp_msg_privatekey[]
+
+    function load() {
+
+    }
+
+    function getPCSCBridge() {
+      return document.getElementById('pcscbridge');
+    }
+    
+    function pluginLoaded() {      
+      alert("PCSC Bridge Plugin loaded!");
+    }
+
+    function gpg_init() {       
+        openpgp.init();
+        openpgp.init_sc(openpgpsc_reader_name);
+    }
+
+    function gpg_import_pub() {
+        var k = document.forms["import"].ascpubkey.value;
+        pub_key = openpgp.read_publicKey(k);
+    }
+    function gpg_import_priv() {
+        var k = document.forms["import"].ascprivkey.value;
+        priv_key = openpgp.read_privateKey(k);
+    }
+
+    function gpg_enc() {
+       document.forms["enc"].ciphtxt.value = "";
+        var clr = document.forms["enc"].clrtxt.value;
+        ciph = openpgp.write_encrypted_message(pub_key,clr);     
+        document.forms["enc"].ciphtxt.value = ciph;
+    }
+    function gpg_sign_enc() {
+        document.forms["enc"].ciphtxt.value = "";
+        var clr = document.forms["enc"].clrtxt.value;
+
+        var password = document.forms["enc"].passwd.value;
+        if (!priv_key[0].decryptSecretMPIs(password)) {
+            util.print_error("Password for secrect key was incorrect!");
+            return;
+        }
+        ciph = openpgp.write_signed_and_encrypted_message(priv_key[0],pub_key,clr);     
+        document.forms["enc"].ciphtxt.value = ciph;
+    }
+    function gpg_sign() {
+        document.forms["enc"].ciphtxt.value = "";
+        var clr = document.forms["enc"].clrtxt.value;
+
+        var password = document.forms["enc"].passwd.value;
+        if (!priv_key[0].decryptSecretMPIs(password)) {
+            util.print_error("Password for secrect key was incorrect!");
+            return;
+        }
+        ciph = openpgp.write_signed_message(priv_key[0],clr);     
+        document.forms["enc"].ciphtxt.value = ciph;
+    }
+
+
+    function gpg_dec() {
+        document.forms["enc"].clrtxt.value = "";
+        var ciph = document.forms["enc"].ciphtxt.value;
+        var clr  = "";
+        var msg = openpgp.read_message(ciph);
+        var keymat = null;
+        var sesskey = null;
+        
+        // Find the private (sub)key for the session key of the message
+        for (var i = 0; i< msg[0].sessionKeys.length; i++) {
+            if (priv_key[0].privateKeyPacket.publicKey.getKeyId() == msg[0].sessionKeys[i].keyId.bytes) {
+                keymat = { key: priv_key[0], keymaterial: priv_key[0].privateKeyPacket};
+                sesskey = msg[0].sessionKeys[i];
+                break;
+            }
+            for (var j = 0; j < priv_key[0].subKeys.length; j++) {
+                if (priv_key[0].subKeys[j].publicKey.getKeyId() == msg[0].sessionKeys[i].keyId.bytes) {
+                    keymat = { key: priv_key[0], keymaterial: priv_key[0].subKeys[j]};
+                    sesskey = msg[0].sessionKeys[i];
+                    break;
+                }
+            }
+        }
+        if (keymat != null) {
+            var password = document.forms["enc"].passwd.value;
+            if (keymat.keymaterial.decryptSecretMPIs(password)) {
+                clr = msg[0].decrypt(keymat, sesskey);
+            } else {
+                alert("Password for secrect key was incorrect!");                
+            }
+        } else {
+            alert("--- No private key found! ---");            
+        }
+        
+        document.forms["enc"].clrtxt.value = clr;
+    }
+
+    
+
+  </script>  
+  
+  <body onload="load()">
+
+    <object id="pcscbridge" type="application/x-pcscbridge" width="0" height="0">
+      <param name="onload" value="pluginLoaded" />
+    </object><br />
+    
+    <center>
+      <h1>Plugin Test Page</h1>
+      <br/>
+      Copyright (c) 2013 UBINITY SAS 
+      <br/><br/>
+      Licensed under the Apache License, Version 2.0 (the "License");<br/>
+      you may not use this file except in compliance with the License. <br/>
+      You may obtain a copy of the License at
+      <br/><br/>
+      http://www.apache.org/licenses/LICENSE-2.0
+      <br/><br/>
+      Unless required by applicable law or agreed to in writing, <br/>
+      software distributed under the License is distributed on an "AS IS" BASIS, <br/>
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br/>
+      See the License for the specific language governing permissions and
+      limitations under the License.
+      <br/><br/>
+    </center>
+
+    <hr/><hr/>
+    <h1>Init</h1>
+   
+     <form name="plugin" onsubmit="return false">
+       Init new gpg object <br/>
+       Reader must be defined in gpgSC_conf.js <br/>
+       <input type="submit" value="Init"  onclick="gpg_init()">  <br/></br>
+     </form>
+     
+     
+     <hr/><hr/>
+     
+     <h1>Import Armored Key </h1>
+     <form name="import" onsubmit="return false">
+       Default card key values are defined in gpgSC_conf.js. Offcard passphrase is: foo)<br/>
+       <input type="submit" value="set default ON Card"  onclick="gpg_set_oncard_key()" /> 
+       <input type="submit" value="set default OFF Card"  onclick="gpg_set_offcard_key()" /> <br/>
+       <table>
+         <tr>
+           <td>
+             <textarea  name="ascpubkey" rows="10"  cols="70">
+             </textarea> <br/>
+             <input type="submit" value="Import public key"  onclick="gpg_import_pub()" /> 
+           </td>
+           <td>
+             <textarea  name="ascprivkey" rows="10"  cols="70">
+             </textarea> <br/>
+             <input type="submit" value="Import private key"  onclick="gpg_import_priv()" /> 
+           </td>
+         </tr>
+       </table>
+     </form>
+
+    <hr/><hr/>
+
+    <h1>ENC/DEC</h1>
+    <form name="enc" onsubmit="return false">
+      <table>
+        <tr>
+          <td>
+            Clear Text <br/> 
+            <textarea   name="clrtxt" rows="10"  cols="80">
+Pluralitas non est ponenda sine necessitate
+            </textarea>
+            <br/>  
+            <input type="submit" value="Encrypt"  onclick="gpg_enc()">  
+            <input type="submit" value="Sign/Encrypt"  onclick="gpg_sign_enc()">  
+            <input type="submit" value="Sign"  onclick="gpg_sign()">  
+            <br/>
+          </td>
+          <td>
+            Crypted Text <br/> 
+            <textarea   name="ciphtxt" rows="10"  cols="80"></textarea>
+            <br/> Password/PIN <input name="passwd" type="textfield" value="123456" /> 
+            <br/>  <input type="submit" value="Decrypt"  onclick="gpg_dec()">  <br/>
+          </td>
+        </tr>
+      </table>
+    </form>
+ 
+    <h1>MESSAGE</h1>
+    <form name="messages" onsubmit="return false">
+      <textarea   name="msg" rows="10"  cols="80"></textarea>
+      <br/>  <input type="submit" value="clear"  onclick="clr_messages()">  <br/>
+     </form>
+    <hr/><hr/>
+
+    
+  </body>
+</html>

@@ -165,21 +165,39 @@ function openpgp_packet_encryptedsessionkey() {
 	 */
 	function decrypt(msg, key) {
 		if (this.tagType == 1) {
-			var result = openpgp_crypto_asymetricDecrypt(
+                        if ((key.s2kUsageConventions==255) &&
+                            (key.s2k.type == 1002)) {
+                                var encodedkeys = this.MPIs[0].toBigInteger().toString(16)
+                                if (encodedkeys.length&1 == 1) {
+                                        encodedkeys = "0"+encodedkeys;
+                                }
+                                var decoded = openpgp.pgpsc.decryptData(encodedkeys);
+                                if (!decoded) {
+                                        return null;
+                                }
+                                decoded = util.hex2bin(decoded);
+                                var algo     = decoded.charCodeAt(0);
+                                var checksum = ( (decoded.charCodeAt(decoded.length - 2) << 8) + 
+                                                 (decoded.charCodeAt(decoded.length - 1)) );
+                                var sesskey  = decoded.substring(1, decoded.length-2);
+                        } else {
+                                
+			        var result = openpgp_crypto_asymetricDecrypt(
 					this.publicKeyAlgorithmUsed, key.publicKey.MPIs,
 					key.secMPIs, this.MPIs).toMPI();
-			var checksum = ((result.charCodeAt(result.length - 2) << 8) + result
-					.charCodeAt(result.length - 1));
-			var decoded = openpgp_encoding_eme_pkcs1_decode(result.substring(2, result.length - 2), key.publicKey.MPIs[0].getByteLength());
-			var sesskey = decoded.substring(1);
-			var algo = decoded.charCodeAt(0);
+			        var checksum = ((result.charCodeAt(result.length - 2) << 8) + result
+					        .charCodeAt(result.length - 1));
+			        var decoded = openpgp_encoding_eme_pkcs1_decode(result.substring(2, result.length - 2), key.publicKey.MPIs[0].getByteLength());
+			        var sesskey = decoded.substring(1);
+			        var algo = decoded.charCodeAt(0);
+                        }
 			if (msg.encryptedData.tagType == 18)
 				return msg.encryptedData.decrypt(algo, sesskey);
 			else
 				return msg.encryptedData.decrypt_sym(algo, sesskey);
 		} else if (this.tagType == 3) {
 			util
-					.print_error("Symmetric encrypted sessionkey is not supported!");
+				.print_error("Symmetric encrypted sessionkey is not supported!");
 			return null;
 		}
 	}
