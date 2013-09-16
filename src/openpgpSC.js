@@ -123,6 +123,7 @@ function  openpgpSC(reader_name) {
                 rapdu.push(checkSW(rapdu[1],expected));
                 return rapdu;
         };
+
         
         function reset() {
                 this.reader.reset();
@@ -220,6 +221,24 @@ function  openpgpSC(reader_name) {
         };
 
         /* -------- HIGH LEVEL API ------- */
+        function setReader(reader_name) {
+                this.closeSession();
+                if (reader_name) {
+                        this.reader = this.scard.getReader(reader_name);
+                }
+                return (this.reader != undefined);
+        }
+
+        function closeSession() {
+                this.PINcache = [];
+                this.card = {};
+                this.config = {};
+                this.inited = false;
+                if (this.reader) {
+                        this.reader.disconnect(scardjs.getSCardConst('SCARD_UNPOWER_CARD'));
+                }
+        }
+
         function initSession() {
                 this.PINcache = [];
                 this.card = {};
@@ -233,9 +252,9 @@ function  openpgpSC(reader_name) {
 
         function initSessionCached() {
                 //TODO: insert code here to check card changed and reset inited
-                if (this.inited) {
-                        return true;
-                }
+               // if (this.inited) {
+               //         return true;
+               // }
                 return this.initSession();
         }
 
@@ -396,9 +415,7 @@ function  openpgpSC(reader_name) {
 
         // --- INTERFACE ---
         this.hexs = hexs;
-
-        this.initSession = initSession;
-        this.initSessionCached = initSessionCached;
+        
         this.sendAPDU = sendAPDU; 
         this.reset = reset;
         this.select = select;
@@ -410,6 +427,10 @@ function  openpgpSC(reader_name) {
         this.putData = putData;
         this.decrypt = decrypt;
         
+        this.setReader = setReader;
+        this.initSession = initSession;
+        this.initSessionCached = initSessionCached;
+        this.closeSession = closeSession;
         this.fetchCardData = fetchCardData;
         this.getFingerPrint = getFingerPrint;
         this.verifyPIN = verifyPIN;
@@ -514,7 +535,5 @@ function  openpgpSC(reader_name) {
         // --- INIT --- 
         this.scard = new scardjs.SCardContext();
         this.scard.establish();        
-        this.reader = this.scard.getReader(reader_name);
-        this.PINcache = [];
         this.inited = false;
 }

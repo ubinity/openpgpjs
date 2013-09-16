@@ -48,7 +48,8 @@ function _openpgp () {
          * Not that the reader name may be partial.
          */
         function init_sc(reader_name) {
-                this.pgpsc = new openpgpSC(reader_name);
+                this.pgpsc = new openpgpSC();
+                this.pgpsc.setReader(reader_name);               
         }   
 
 	/**
